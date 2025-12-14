@@ -16,16 +16,7 @@ class AuthController extends Controller {
     ){}
 
     public function me(Request $request) {
-        $ip = $request->ip();
-
-        $action = app(RegisterUser::class);
-        $user = $action->execute($ip);
-
-        $this->userRepository->update($user->id, [
-            'last_activity' => now(),
-        ]);
-
-        return response()->json($user);
+        return response()->json($request->user());
     }
 
     public function register(Request $request) {
@@ -34,7 +25,13 @@ class AuthController extends Controller {
         $action = app(RegisterUser::class);
         $user = $action->execute($ip);
 
-        return response()->json($user);
+        return response()->json([
+            'access_token' => $user->access_token,
+            'token' => $this->jwtManager->generateToken(TokenPayload::from([
+                'id' => $user->id,
+                'ip_address' => $user->ip_address,
+            ])),
+        ]);
     }
 
     public function login(Request $request) {

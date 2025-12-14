@@ -1,0 +1,45 @@
+FROM dunglas/frankenphp
+
+# System deps
+RUN apt-get update && apt-get install -y git zip unzip curl ca-certificates && rm -rf /var/lib/apt/lists/*
+
+# PHP extensions (giữ như của anh)
+RUN install-php-extensions pcntl redis pdo_mysql mysqli zip bcmath sockets gd
+
+# Copy custom PHP configuration (increase upload limits)
+COPY php-custom.ini /usr/local/etc/php/conf.d/99-custom.ini
+
+# --- Node LTS (20.x) cho Octane watcher ---
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+ && apt-get install -y nodejs \
+ && npm -v && node -v
+
+# Tạo user, composer... (giữ nguyên của anh)
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+RUN groupadd -g ${GROUP_ID} appuser && useradd -u ${USER_ID} -g appuser -m -s /bin/bash appuser
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+WORKDIR /app
+RUN chown -R appuser:appuser /app
+USER appuser
+
+# Copy composer and patches before installing
+COPY --chown=appuser:appuser composer.json composer.lock ./
+COPY --chown=appuser:appuser patches ./patches
+RUN composer install --no-scripts --no-interaction
+
+# Copy source
+COPY --chown=appuser:appuser . .
+
+# (Quan trọng cho watch) cài chokidar dev-dep
+RUN npm i -D chokidar
+
+# Dump autoload
+RUN composer dump-autoload --no-scripts
+
+# Entrypoint local (bên dưới)
+COPY --chown=appuser:appuser entrypoint.local.sh /usr/local/bin/entrypoint.local.sh
+RUN chmod +x /usr/local/bin/entrypoint.local.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.local.sh"]

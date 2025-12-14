@@ -14,4 +14,9 @@ class ProjectNoteRepository extends CleanRepositoriesAbstract implements Project
     {
         parent::__construct($model);
     }
+
+    public function isBelongsToProject(int $noteId, int $projectId): bool
+    {
+        return $this->model->where('id', $noteId)->where('project_id', $projectId)->exists();
+    }
 }

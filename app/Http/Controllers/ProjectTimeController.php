@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Application\Usecases\User\StartTimer;
+use App\Application\Usecases\User\StopTimer;
 use App\Domain\Repositories\ProjectTimeRepositoryInterface;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -22,20 +24,38 @@ class ProjectTimeController extends Controller
         return response()->json($time, Response::HTTP_CREATED);
     }
 
-    public function update(Request $request, int $id)
+    public function start(Request $request, int $id)
     {
-        $request->validate([
-            'is_counting' => 'required|integer',
-        ]);
+        $action = app(StartTimer::class);
+        $action->execute($id);
 
-        $time = $this->projectTimeRepository->update($id, $request->validated());
+        return response()->json(true);
+    }
 
-        return response()->json($time);
+    public function stop(int $id)
+    {
+        $action = app(StopTimer::class);
+        $action->execute($id);
+
+        return response()->json(true);
     }
 
     public function destroy(int $id)
     {
         $this->projectTimeRepository->delete($id);
+
+        return response()->json(true);
+    }
+
+    public function updateTime(int $id, Request $request)
+    {
+        $request->validate([
+            'seconds_counted' => 'required|integer',
+        ]);
+
+        $this->projectTimeRepository->update($id, [
+            'seconds_counted' => $request->input('seconds_counted'),
+        ]);
 
         return response()->json(true);
     }

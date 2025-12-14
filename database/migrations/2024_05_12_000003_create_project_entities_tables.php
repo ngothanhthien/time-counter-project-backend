@@ -32,6 +32,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('project_id')->index();
             $table->unsignedBigInteger('user_id')->default(0)->index();
+            $table->timestamp('counted_at')->nullable();
             $table->unsignedBigInteger('seconds_counted')->default(0);
             $table->unsignedTinyInteger('is_counting')->default(0)->index();
             $table->timestamps();

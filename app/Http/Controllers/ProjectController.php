@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Repositories\ProjectRepositoryInterface;
+use App\Application\Usecases\User\CreateProject;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use App\Helpers\DataConverter;
@@ -15,7 +16,10 @@ class ProjectController extends Controller
 
     public function index(Request $request)
     {
-        $projects = $this->projectRepository->allBy(['user_id' => $request->user()->id]);
+        $projects = $this->projectRepository->allBy(
+            ['user_id' => $request->user()->id],
+            ['notes', 'time_entries']
+        );
 
         return response()->json($projects);
     }
@@ -33,11 +37,11 @@ class ProjectController extends Controller
             'name' => 'required|string|max:255',
         ]);
 
-        $project = $this->projectRepository->create([
-            'name' => $request->input('name'),
-            'status' => 'idle',
-            'user_id' => $request->user()->id,
-        ]);
+        $action = app(CreateProject::class);
+        $project = $action->execute(
+            $request->input('name'),
+            $request->user()->id
+        );
 
         return response()->json($project, Response::HTTP_CREATED);
     }
@@ -49,10 +53,13 @@ class ProjectController extends Controller
             'status' => 'required|string|in:idle,processing,completed',
         ]);
 
-        $project = $this->projectRepository->update($id, DataConverter::filterNulls([
-            'name' => $request->input('name'),
-            'status' => $request->input('status'),
-        ]));
+        $project = $this->projectRepository->update(
+            $id,
+            DataConverter::filterNulls([
+                'name' => $request->input('name'),
+                'status' => $request->input('status'),
+            ]),
+        );
 
         return response()->json($project);
     }

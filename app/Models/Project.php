@@ -25,11 +25,11 @@ class Project extends Model
 
     public function notes(): HasMany
     {
-        return $this->hasMany(ProjectNote::class);
+        return $this->hasMany(ProjectNote::class, 'project_id');
     }
 
     public function time_entries(): HasMany
     {
-        return $this->hasMany(ProjectTime::class);
+        return $this->hasMany(ProjectTime::class, 'project_id');
     }
 }

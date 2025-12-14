@@ -14,4 +14,9 @@ class ProjectTimeRepository extends CleanRepositoriesAbstract implements Project
     {
         parent::__construct($model);
     }
+
+    public function isBelongsToProject(int $timerId, int $projectId): bool
+    {
+        return $this->model->where('id', $timerId)->where('project_id', $projectId)->exists();
+    }
 }

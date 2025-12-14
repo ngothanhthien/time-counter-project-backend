@@ -1,49 +1,59 @@
-FROM node:20-alpine AS frontend
-WORKDIR /app
+FROM dunglas/frankenphp
 
-# Install JS dependencies and build assets
-COPY package*.json ./
-RUN npm install
-COPY resources ./resources
-COPY vite.config.js ./
-RUN npm run build
-
-FROM composer:2 AS vendor
-WORKDIR /app
-
-# Install PHP dependencies without dev tools for a leaner image
-COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
-
-FROM php:8.2-apache-bookworm AS app
-
-# System dependencies + PHP extensions required by Laravel
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        git \
-        unzip \
-        libzip-dev \
-        libpng-dev \
-        libonig-dev \
-        libxml2-dev \
-        libicu-dev \
-    && docker-php-ext-install pdo_mysql bcmath intl opcache \
-    && a2enmod rewrite \
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    zip \
+    unzip \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
-WORKDIR /var/www/html
+# Install PHP extensions
+RUN install-php-extensions \
+    pcntl \
+    redis \
+    pdo_mysql \
+    mysqli \
+    zip \
+    bcmath \
+    sodium \
+    sockets
+    # Add other PHP extensions here...
 
-# Copy application source
-COPY . .
+# Copy custom PHP configuration (increase upload limits)
+COPY php-custom.ini /usr/local/etc/php/conf.d/99-custom.ini
 
-# Bring in built assets and vendor deps from build stages
-COPY --from=frontend /app/public/build ./public/build
-COPY --from=vendor /app/vendor ./vendor
+# Create user with same UID/GID as host user
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+RUN groupadd -g ${GROUP_ID} appuser && \
+    useradd -u ${USER_ID} -g appuser -m -s /bin/bash appuser
 
-# Permissions for writable directories
-RUN mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/app storage/logs \
-    && chown -R www-data:www-data storage bootstrap/cache
+# Install Composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-EXPOSE 80
-CMD ["apache2-foreground"]
+# Set working directory and permissions
+WORKDIR /app
+RUN chown -R appuser:appuser /app
+
+# --- Add entrypoint script (as root), then set permission ---
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh && chown appuser:appuser /usr/local/bin/entrypoint.sh
+
+# Switch to non-root user first
+USER appuser
+
+# Copy composer files for dependency installation
+COPY --chown=appuser:appuser composer.json composer.lock ./
+
+# Install dependencies without running scripts
+RUN composer install --no-dev --no-scripts --no-interaction
+
+# Copy the rest of the application
+COPY --chown=appuser:appuser . .
+
+# Generate basic autoloader (without optimization to avoid database calls)
+RUN composer dump-autoload --no-scripts
+
+# Use our entrypoint
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

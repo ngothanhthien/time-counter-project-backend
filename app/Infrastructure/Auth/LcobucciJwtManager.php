@@ -3,6 +3,7 @@
 namespace App\Infrastructure\Auth;
 
 use App\Domain\Contracts\JwtManagerInterface;
+use App\Domain\Data\TokenPayload;
 use Lcobucci\JWT\Configuration;
 use DateTimeZone;
 use Lcobucci\Clock\SystemClock;
@@ -31,7 +32,7 @@ class LcobucciJwtManager implements JwtManagerInterface
         );
     }
 
-    public function generateToken(array $payload): string
+    public function generateToken(TokenPayload $payload): string
     {
         $now = new DateTimeImmutable();
 
@@ -43,7 +44,7 @@ class LcobucciJwtManager implements JwtManagerInterface
             ->canOnlyBeUsedAfter($now)
             ->expiresAt($now->modify("+{$ttl} seconds"));
 
-        foreach ($payload as $key => $value) {
+        foreach ($payload->toArray() as $key => $value) {
             $builder->withClaim($key, $value);
         }
 
@@ -51,7 +52,7 @@ class LcobucciJwtManager implements JwtManagerInterface
             ->toString();
     }
 
-    public function parseToken(string $token): ?array
+    public function parseToken(string $token): ?TokenPayload
     {
         try {
             $parsedToken = $this->config->parser()->parse($token);
@@ -66,7 +67,19 @@ class LcobucciJwtManager implements JwtManagerInterface
                 return null;
             }
 
-            return $parsedToken->claims()->all();
+            $claims = $parsedToken->claims();
+
+            $id = $claims->get('id');
+            $ipAddress = $claims->get('ip_address');
+
+            if ($id === null || $ipAddress === null) {
+                return null;
+            }
+
+            return TokenPayload::from([
+                'id' => (int) $id,
+                'ip_address' => (string) $ipAddress,
+            ]);
 
         } catch (Throwable $e) {
             return null;

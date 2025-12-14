@@ -122,7 +122,7 @@ abstract class CleanRepositoriesAbstract implements CleanRepositoryInterface
     {
         $payload = $data instanceof Data ? $data->toArray() : $data;
 
-        $record = $this->model->create($payload);
+        $record = $this->model->create($payload)->refresh();
 
         return $this->toEntity($record);
     }
@@ -141,7 +141,7 @@ abstract class CleanRepositoriesAbstract implements CleanRepositoryInterface
     {
         $payload = $data instanceof Data ? $data->toArray() : $data;
 
-        $record = $this->model->updateOrCreate($conditions, $payload);
+        $record = $this->model->updateOrCreate($conditions, $payload)->refresh();
 
         return $this->toEntity($record);
     }

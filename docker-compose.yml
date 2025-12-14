@@ -1,67 +1,127 @@
-version: "3.9"
-
 services:
-  app:
+  # Backend API Service
+  backend:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: laravel-app
-    env_file:
-      - .env
-    environment:
-      APP_ENV: local
-      APP_DEBUG: "true"
-      APP_URL: http://localhost:8080
-      DB_CONNECTION: mysql
-      DB_HOST: mariadb
-      DB_PORT: 3306
-      DB_DATABASE: laravel
-      DB_USERNAME: laravel
-      DB_PASSWORD: secret
-    ports:
-      - "8080:80"
-    volumes:
-      - ./storage:/var/www/html/storage
-      - ./bootstrap/cache:/var/www/html/bootstrap/cache
-    depends_on:
-      mariadb:
-        condition: service_healthy
+      dockerfile: Dockerfile.local
+      args:
+        USER_ID: ${USER_ID:-1000}
+        GROUP_ID: ${GROUP_ID:-1000}
+    container_name: backend-api
     restart: unless-stopped
-
-  mariadb:
-    image: mariadb:11.4
-    container_name: mariadb
-    environment:
-      MARIADB_ROOT_PASSWORD: root
-      MARIADB_DATABASE: laravel
-      MARIADB_USER: laravel
-      MARIADB_PASSWORD: secret
     ports:
-      - "3306:3306"
+      - "8000:8000"
+    environment:
+      - APP_ENV=local
+      - APP_DEBUG=true
+      - DB_CONNECTION=mysql
+      - DB_HOST=mariadb
+      - DB_PORT=3306
+      - DB_DATABASE=backend
+      - DB_USERNAME=root
+      - DB_PASSWORD=secret
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CACHE_STORE=redis
+      - SESSION_DRIVER=redis
+      - QUEUE_CONNECTION=rabbitmq
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+      - RABBITMQ_VHOST=/
+      - OCTANE_SERVER=frankenphp
+      - CHOKIDAR_USEPOLLING=1
+      - CHOKIDAR_INTERVAL=200
+      - RUN_QUEUE=1
+    volumes:
+      - .:/app
+    depends_on:
+      - mariadb
+      - redis
+      - rabbitmq
+    networks:
+      - backend-network
+
+  # MariaDB Database Service
+  mariadb:
+    image: mariadb:10.11
+    container_name: backend-mariadb
+    restart: unless-stopped
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: backend
+      MYSQL_USER: backend_user
+      MYSQL_PASSWORD: backend_password
     volumes:
       - mariadb_data:/var/lib/mysql
+      - ./database/mysql-init:/docker-entrypoint-initdb.d
+    networks:
+      - backend-network
+
+  # Redis Cache Service
+  redis:
+    image: redis:7.2-alpine
+    container_name: backend-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend-network
+
+  # RabbitMQ Message Broker Service
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: backend-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"   # AMQP protocol port
+      - "15672:15672" # Management UI port
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_VHOST: /
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - backend-network
     healthcheck:
-      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost"]
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 20s
-    restart: unless-stopped
 
+  # phpMyAdmin Service
   phpmyadmin:
-    image: phpmyadmin:5.2
-    container_name: phpmyadmin
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: backend-phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8080:80"
     environment:
       PMA_HOST: mariadb
-      PMA_USER: laravel
+      PMA_PORT: 3306
+      PMA_USER: root
       PMA_PASSWORD: secret
-      UPLOAD_LIMIT: 256M
-    ports:
-      - "8081:80"
+      MYSQL_ROOT_PASSWORD: secret
     depends_on:
-      mariadb:
-        condition: service_healthy
-    restart: unless-stopped
+      - mariadb
+    networks:
+      - backend-network
 
 volumes:
   mariadb_data:
+    driver: local
+  redis_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+
+networks:
+  backend-network:
+    driver: bridge

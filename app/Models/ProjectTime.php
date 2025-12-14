@@ -15,6 +15,7 @@ class ProjectTime extends Model
     protected $casts = [
         'seconds_counted' => 'integer',
         'is_counting' => 'integer',
+        'counted_at' => 'immutable_datetime',
         'created_at' => 'immutable_datetime',
         'updated_at' => 'immutable_datetime',
     ];

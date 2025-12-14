@@ -3,8 +3,6 @@
 namespace App\Domain\Entities;
 
 use Spatie\LaravelData\Data;
-use Carbon\CarbonImmutable;
-use Spatie\LaravelData\Attributes\Validation\Date;
 
 class User extends Data
 {
@@ -13,7 +11,6 @@ class User extends Data
         public string $access_token,
         public string $ip_address,
 
-        #[Date]
-        public CarbonImmutable $last_activity,
+        public string $last_activity,
     ) {}
 }

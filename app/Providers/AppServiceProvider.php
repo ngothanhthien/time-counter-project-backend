@@ -13,6 +13,8 @@ use App\Infrastructure\Repositories\Laravel\ProjectNoteRepository;
 use App\Infrastructure\Repositories\Laravel\ProjectRepository;
 use App\Infrastructure\Repositories\Laravel\ProjectTimeRepository;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -33,6 +35,24 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Auth::viaRequest('jwt', function (Request $request) {
 
+            // 1. Lấy token
+            $token = $request->bearerToken();
+            if (!$token) return null;
+
+            try {
+                $jwtManager = app(JwtManagerInterface::class);
+                $userRepo = app(UserRepositoryInterface::class);
+
+                $payload = $jwtManager->parseToken($token);
+                if (!$payload) return null;
+
+                return $userRepo->findById($payload->id);
+
+            } catch (\Exception $e) {
+                return null;
+            }
+        });
     }
 }

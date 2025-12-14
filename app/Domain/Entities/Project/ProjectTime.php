@@ -16,6 +16,9 @@ class ProjectTime extends Data
         public int $is_counting,
 
         #[Date]
+        public ?CarbonImmutable $counted_at = null,
+
+        #[Date]
         public CarbonImmutable $created_at,
 
         #[Date]
