@@ -52,6 +52,13 @@ RUN composer install --no-dev --no-scripts --no-interaction
 # Copy the rest of the application
 COPY --chown=appuser:appuser . .
 
+RUN mkdir -p storage/framework/views \
+    storage/framework/cache \
+    storage/framework/sessions \
+    bootstrap/cache
+
+RUN chmod -R 775 storage bootstrap/cache
+
 # Generate basic autoloader (without optimization to avoid database calls)
 RUN composer dump-autoload --no-scripts
 
