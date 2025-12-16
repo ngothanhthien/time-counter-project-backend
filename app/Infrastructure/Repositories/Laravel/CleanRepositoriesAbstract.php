@@ -13,10 +13,16 @@ abstract class CleanRepositoriesAbstract implements CleanRepositoryInterface
     protected Model $model;
 
     protected string $dataClass;
+    protected array $defaultRelations = [];
 
     public function __construct(Model $model)
     {
         $this->model = $model;
+    }
+
+    protected function mergeWith(array $runtimeWith): array
+    {
+        return array_unique(array_merge($this->defaultRelations, $runtimeWith));
     }
 
     protected function toEntity(mixed $source): mixed
@@ -41,6 +47,7 @@ abstract class CleanRepositoriesAbstract implements CleanRepositoryInterface
 
     public function findById(string|int $id, array $with = []): ?Data
     {
+        $with = $this->mergeWith($with);
         $record = $this->query()->with($with)->find($id);
 
         return $this->toEntity($record);
@@ -48,6 +55,7 @@ abstract class CleanRepositoriesAbstract implements CleanRepositoryInterface
 
     public function findOrFail(string|int $id, array $with = []): Data
     {
+        $with = $this->mergeWith($with);
         $record = $this->query()->with($with)->findOrFail($id);
 
         return $this->toEntity($record);
@@ -55,6 +63,7 @@ abstract class CleanRepositoriesAbstract implements CleanRepositoryInterface
 
     public function findBy(array $conditions, array $with = []): ?Data
     {
+        $with = $this->mergeWith($with);
         $query = $this->query()->with($with);
         $this->applyConditions($conditions, $query);
 
@@ -131,10 +140,60 @@ abstract class CleanRepositoriesAbstract implements CleanRepositoryInterface
     {
         $payload = $data instanceof Data ? $data->toArray() : $data;
 
+        $cleanPayload = array_filter($payload, function ($value) {
+            return $value !== null && $value !== '';
+        });
+
+        return $this->performUpdate($id, $cleanPayload);
+    }
+
+    public function forceUpdate(string|int $id, Data|array $data): Data
+    {
+        $payload = $data instanceof Data ? $data->toArray() : $data;
+
+        return $this->performUpdate($id, $payload);
+    }
+
+    protected function performUpdate(string|int $id, array $attributes): Data
+    {
         $record = $this->query()->findOrFail($id);
-        $record->update($payload);
+
+        if (!empty($attributes)) {
+            $record->update($attributes);
+        }
 
         return $this->toEntity($record->refresh());
+    }
+
+    public function updateBy(array $conditions, Data|array $data): int
+    {
+        $payload = $data instanceof Data ? $data->toArray() : $data;
+
+        $cleanPayload = array_filter($payload, function ($value) {
+            return $value !== null && $value !== '';
+        });
+
+        return $this->performBulkUpdate($conditions, $cleanPayload);
+    }
+
+    public function forceUpdateBy(array $conditions, Data|array $data): int
+    {
+        $payload = $data instanceof Data ? $data->toArray() : $data;
+
+        return $this->performBulkUpdate($conditions, $payload);
+    }
+
+    protected function performBulkUpdate(array $conditions, array $attributes): int
+    {
+        if (empty($attributes)) {
+            return 0;
+        }
+
+        $query = $this->query();
+
+        $this->applyConditions($conditions, $query);
+
+        return $query->update($attributes);
     }
 
     public function createOrUpdate(Data|array $data, array $conditions = []): Data
@@ -158,5 +217,24 @@ abstract class CleanRepositoriesAbstract implements CleanRepositoryInterface
         $this->applyConditions($conditions, $query);
 
         return $query->delete() > 0;
+    }
+
+    public function getPaginatedList(
+        array $filters = [],
+        int $perPage = 25,
+        array $with = [],
+        string $orderBy = 'created_at',
+        string $orderDirection = 'desc'
+    ): \Spatie\LaravelData\PaginatedDataCollection
+    {
+        $query = $this->query()->with($with);
+
+        if (method_exists($this->model, 'scopeApplyFilter')) {
+            $query->applyFilter($filters);
+        }
+
+        $query->orderBy($orderBy, $orderDirection);
+
+        return $this->toEntity($query->paginate($perPage));
     }
 }

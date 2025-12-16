@@ -4,6 +4,7 @@ namespace App\Domain\Repositories;
 
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\DataCollection;
+use Spatie\LaravelData\PaginatedDataCollection;
 
 interface CleanRepositoryInterface
 {
@@ -16,7 +17,20 @@ interface CleanRepositoryInterface
 
     public function create(Data|array $data): Data;
     public function update(string|int $id, Data|array $data): Data;
+
+    public function forceUpdate(string|int $id, Data|array $data): Data;
     public function createOrUpdate(Data|array $data, array $conditions = []): Data;
+
+    public function updateBy(array $conditions, Data|array $data): int;
+    public function forceUpdateBy(array $conditions, Data|array $data): int;
     public function delete(string|int $id): bool;
     public function deleteBy(array $conditions): bool;
+
+    public function getPaginatedList(
+        array $filters = [],
+        int $perPage = 25,
+        array $with = [],
+        string $orderBy = 'created_at',
+        string $orderDirection = 'desc'
+    ): PaginatedDataCollection;
 }

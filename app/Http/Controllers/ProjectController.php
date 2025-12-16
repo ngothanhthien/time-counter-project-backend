@@ -2,16 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Application\Usecases\System\CheckpointTimer;
 use App\Domain\Repositories\ProjectRepositoryInterface;
 use App\Application\Usecases\User\CreateProject;
+use App\Domain\Repositories\ProjectTimeRepositoryInterface;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use App\Helpers\DataConverter;
+use App\Domain\Entities\Project\ProjectTime;
 
 class ProjectController extends Controller
 {
     public function __construct(
-        private readonly ProjectRepositoryInterface $projectRepository
+        private readonly ProjectRepositoryInterface $projectRepository,
+        private readonly ProjectTimeRepositoryInterface $projectTimeRepository
     ) {}
 
     public function index(Request $request)
@@ -26,6 +30,18 @@ class ProjectController extends Controller
 
     public function show(int $id)
     {
+        /** @var ProjectTime[] $timeEntries */
+        $timeEntries = $this->projectTimeRepository->allBy([
+            'project_id' => $id,
+            'is_counting' => true,
+        ]);
+
+        $action = app(CheckpointTimer::class);
+
+        foreach ($timeEntries as $timeEntry) {
+            $action->execute($timeEntry->id);
+        }
+
         $project = $this->projectRepository->findById($id, ['notes', 'time_entries']);
 
         return response()->json($project);

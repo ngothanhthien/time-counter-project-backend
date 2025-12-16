@@ -31,9 +31,9 @@ Route::middleware('auth:api')->group(function () {
             Route::put('/{id}', [ProjectController::class, 'update']);
             Route::delete('/{id}', [ProjectController::class, 'destroy']);
 
+            Route::post('notes', [ProjectNoteController::class, 'store']);
             Route::middleware(NoteBelongToProjectMiddleware::class)->group(function () {
                 Route::prefix('notes')->group(function () {
-                    Route::post('/', [ProjectNoteController::class, 'store']);
                     Route::put('/{id}', [ProjectNoteController::class, 'update']);
                     Route::delete('/{id}', [ProjectNoteController::class, 'destroy']);
                 });
