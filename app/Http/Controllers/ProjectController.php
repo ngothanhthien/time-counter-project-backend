@@ -42,7 +42,14 @@ class ProjectController extends Controller
             $action->execute($timeEntry->id);
         }
 
-        $project = $this->projectRepository->findById($id, ['notes', 'time_entries']);
+        $project = $this->projectRepository->findById($id, [
+            'notes' => function ($query) {
+                $query->orderBy('created_at', 'desc');
+            },
+            'time_entries' => function ($query) {
+                $query->orderBy('created_at', 'desc');
+            }
+        ]);
 
         return response()->json($project);
     }

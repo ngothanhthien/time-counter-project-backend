@@ -22,7 +22,7 @@ abstract class CleanRepositoriesAbstract implements CleanRepositoryInterface
 
     protected function mergeWith(array $runtimeWith): array
     {
-        return array_unique(array_merge($this->defaultRelations, $runtimeWith));
+        return array_merge($this->defaultRelations, $runtimeWith);
     }
 
     protected function toEntity(mixed $source): mixed
